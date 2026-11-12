@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>آرشیو املاک آبادان</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b6bcb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#1d2530;--muted:#6b7686;--line:#e2e6ec;--accent:#0b6bcb;--warn:#b42318}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--text:#e8edf3;--muted:#9aa7b8;--line:#2b3542;--accent:#5aa9ff;--warn:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 Tahoma,"Vazirmatn",system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;align-items:center}
+header h1{font-size:17px;margin:0;flex:1}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button.small{padding:4px 10px;font-size:14px}
+main{padding:10px 12px 40px;max-width:760px;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+input[type=text],input[type=search],input[type=password],select{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.full{grid-column:1/-1}
+.summary{color:var(--muted);font-size:14px;margin:6px 2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px;cursor:pointer}
+.card h3{margin:0 0 4px;font-size:16px}
+.meta{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:14px}
+.price{font-weight:bold}
+.tag{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:12px;color:var(--muted)}
+.err{color:var(--warn);white-space:pre-wrap;margin:8px 0}
+#detail{position:fixed;inset:0;background:var(--bg);z-index:10;overflow:auto}
+#detail .inner{max-width:760px;margin:0 auto;padding:12px 12px 60px}
+.desc{white-space:pre-wrap;word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}
+a.btn{display:inline-block;background:var(--accent);color:#fff;border-radius:10px;padding:8px 12px;text-decoration:none;margin:0 0 6px 6px}
+a.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="setup" hidden>
+  <main>
+    <div class="panel">
+      <h2 style="margin-top:0">اتصال به دیتابیس آنلاین</h2>
+      <p class="meta">آدرس و توکن Turso را فقط یک بار وارد کنید. فقط روی همین دستگاه ذخیره می‌شود. ترجیحاً توکن «فقط‌خواندنی» بسازید.</p>
+      <label for="cfgUrl">آدرس (URL)</label>
+      <input id="cfgUrl" type="text" dir="ltr" placeholder="libsql://...turso.io" autocomplete="off" autocapitalize="off">
+      <label for="cfgToken" style="margin-top:8px">توکن</label>
+      <input id="cfgToken" type="password" dir="ltr" autocomplete="off">
+      <div style="margin-top:10px"><button id="btnConnect">اتصال</button></div>
+      <div id="setupErr" class="err"></div>
+    </div>
+  </main>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>آرشیو املاک آبادان</h1>
+    <button class="ghost small" id="btnFilters">فیلترها</button>
+    <button class="ghost small" id="btnReload">بارگذاری مجدد</button>
+  </header>
+  <main>
+    <div id="filters" class="panel" hidden>
+      <div class="grid">
+        <div class="full"><label for="fSearch">جستجو در عنوان و توضیحات</label><input id="fSearch" type="search"></div>
+        <div><label for="fMonth">ماه ثبت (شمسی)</label><select id="fMonth"></select></div>
+        <div><label for="fType">نوع ملک</label><select id="fType"></select></div>
+        <div><label for="fPmin">قیمت از (میلیارد تومان)</label><input id="fPmin" type="text" inputmode="decimal"></div>
+        <div><label for="fPmax">قیمت تا (میلیارد تومان)</label><input id="fPmax" type="text" inputmode="decimal"></div>
+        <div><label for="fAmin">متراژ از</label><input id="fAmin" type="text" inputmode="decimal"></div>
+        <div><label for="fAmax">متراژ تا</label><input id="fAmax" type="text" inputmode="decimal"></div>
+        <div><label for="fStatus">وضعیت</label><select id="fStatus"><option value="active">فقط فعال</option><option value="all">همه</option></select></div>
+        <div><label for="fSort">مرتب‌سازی</label><select id="fSort"></select></div>
+      </div>
+      <div style="margin-top:8px"><button class="ghost small" id="btnReset">پاک کردن فیلترها</button></div>
+    </div>
+    <div id="appErr" class="err"></div>
+    <div id="summary" class="summary"></div>
+    <div id="list"></div>
+    <div style="text-align:center;margin:10px"><button id="btnMore" class="ghost" hidden>نمایش بیشتر</button></div>
+    <div style="text-align:center;margin-top:20px"><button class="ghost small" id="btnLogout">خروج و حذف اتصال از این دستگاه</button></div>
+  </main>
+</div>
+
+<div id="detail" hidden><div class="inner" id="detailInner"></div></div>
+
+<script>
+"use strict";
+const MONTHS = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+const CFG_KEY = "divar_turso_cfg";
+const PAGE = 60;
+let DATA = [], FILTERED = [], SHOWN = 0;
+
+/* ---------- کمکی‌ها ---------- */
+const $ = id => document.getElementById(id);
+function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+const faNum = (n, d) => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString("fa-IR", {maximumFractionDigits: d == null ? 0 : d});
+function toAscii(s){ return String(s).replace(/[۰-۹]/g, c => "۰۱۲۳۴۵۶۷۸۹".indexOf(c)).replace(/[٠-٩]/g, c => "٠١٢٣٤٥٦٧٨٩".indexOf(c)).replace(/[٬،,]/g, "").replace(/٫/g, "."); }
+function num(s){ const t = toAscii(s).trim(); if(!t) return null; const v = parseFloat(t); return isNaN(v) ? null : v; }
+function fmtPrice(v){
+  if(v == null) return "—";
+  if(v >= 1e9) return faNum(v / 1e9, 2) + " میلیارد تومان";
+  return faNum(v / 1e6, 1) + " میلیون تومان";
+}
+function median(a){ const x = a.filter(v => v != null && !isNaN(v)).sort((p, q) => p - q); if(!x.length) return null; const m = x.length >> 1; return x.length % 2 ? x[m] : (x[m-1] + x[m]) / 2; }
+function monthLabel(mk){ return MONTHS[mk % 100 - 1] + " " + faNum(Math.floor(mk / 100)).replace(/٬/g, ""); }
+
+function gregorianToJalali(gy, gm, gd){
+  const gdm = [0,31,59,90,120,151,181,212,243,273,304,334];
+  const gy2 = gm > 2 ? gy + 1 : gy;
+  let days = 355666 + 365*gy + Math.floor((gy2+3)/4) - Math.floor((gy2+99)/100) + Math.floor((gy2+399)/400) + gd + gdm[gm-1];
+  let jy = -1595 + 33*Math.floor(days/12053); days %= 12053;
+  jy += 4*Math.floor(days/1461); days %= 1461;
+  if(days > 365){ jy += Math.floor((days-1)/365); days = (days-1) % 365; }
+  let jm, jd;
+  if(days < 186){ jm = 1 + Math.floor(days/31); jd = 1 + days % 31; }
+  else { jm = 7 + Math.floor((days-186)/30); jd = 1 + (days-186) % 30; }
+  return [jy, jm, jd];
+}
+function jalaliKeyFromIso(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(iso || "");
+  if(!m) return 0;
+  const [jy, jm, jd] = gregorianToJalali(+m[1], +m[2], +m[3]);
+  return jy*1e8 + jm*1e6 + jd*1e4 + (+m[4] || 0)*100 + (+m[5] || 0);
+}
+
+/* ---------- ارتباط با Turso ---------- */
+function loadCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY) || "null"); }catch(e){ return null; } }
+function saveCfg(c){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }catch(e){} }
+function normUrl(u){ u = u.trim().replace(/\/+$/, ""); return u.startsWith("libsql://") ? "https://" + u.slice(9) : u; }
+function enc(v){
+  if(v == null) return {type: "null"};
+  if(typeof v === "number") return Number.isInteger(v) ? {type: "integer", value: String(v)} : {type: "float", value: v};
+  return {type: "text", value: String(v)};
+}
+function dec(c){
+  if(c.type === "null") return null;
+  if(c.type === "integer") return parseInt(c.value, 10);
+  if(c.type === "float") return parseFloat(c.value);
+  return c.value;
+}
+async function turso(cfg, sql, args){
+  let resp;
+  try{
+    resp = await fetch(normUrl(cfg.url) + "/v2/pipeline", {
+      method: "POST",
+      headers: {"Authorization": "Bearer " + cfg.token, "Content-Type": "application/json"},
+      body: JSON.stringify({requests: [{type: "execute", stmt: {sql, args: (args || []).map(enc)}}, {type: "close"}]})
+    });
+  }catch(e){
+    throw new Error("اتصال به Turso برقرار نشد. اینترنت یا VPN را بررسی کنید.\n(" + e.message + ")");
+  }
+  if(resp.status === 401 || resp.status === 403) throw new Error("توکن نامعتبر است یا دسترسی ندارد.");
+  if(!resp.ok) throw new Error("خطای سرور Turso (کد " + resp.status + ")");
+  const data = await resp.json();
+  const r = (data.results || [])[0];
+  if(!r) throw new Error("پاسخ نامعتبر از Turso");
+  if(r.type === "error") throw new Error("خطای Turso: " + (r.error && r.error.message));
+  const res = r.response.result, cols = res.cols.map(c => c.name);
+  return res.rows.map(row => { const o = {}; row.forEach((cell, i) => { o[cols[i]] = dec(cell); }); return o; });
+}
+
+/* ---------- بارگذاری و آماده‌سازی داده ---------- */
+const COLS = "token,title,prop_type,deal_type,price,area_m2,land_area_m2,district,url,first_seen,status,rooms,year_built,floor_text,total_floors,total_price,price_per_m2,lat,lon,posted_text,updated_text,posted_key,description";
+async function loadData(cfg){
+  const rows = await turso(cfg, "SELECT " + COLS + " FROM listings WHERE status != 'out_of_range'");
+  rows.forEach(r => {
+    r.sort_key = r.posted_key || jalaliKeyFromIso(r.first_seen);
+    r.month_key = Math.floor(r.sort_key / 1e6);
+    r.ppm = r.price_per_m2 != null ? r.price_per_m2 : (r.price && r.area_m2 ? r.price / r.area_m2 : null);
+    r.hay = ((r.title || "") + " " + (r.description || "") + " " + (r.district || "")).toLowerCase();
+  });
+  return rows;
+}
+
+/* ---------- فیلتر و نمایش ---------- */
+const SORTS = {
+  "newest": ["جدیدترین ثبت", r => -r.sort_key],
+  "oldest": ["قدیمی‌ترین ثبت", r => r.sort_key],
+  "price_asc": ["قیمت: کم به زیاد", r => r.price == null ? Infinity : r.price],
+  "price_desc": ["قیمت: زیاد به کم", r => r.price == null ? Infinity : -r.price],
+  "ppm_desc": ["قیمت هر متر: زیاد به کم", r => r.ppm == null ? Infinity : -r.ppm],
+  "area_desc": ["متراژ: زیاد به کم", r => r.area_m2 == null ? Infinity : -r.area_m2]
+};
+function fillSelect(sel, items, keep){
+  sel.textContent = "";
+  items.forEach(([v, t]) => { const o = el("option", null, t); o.value = v; sel.appendChild(o); });
+  if(keep != null && items.some(i => String(i[0]) === String(keep))) sel.value = keep;
+}
+function buildFilterOptions(){
+  const mc = {}; DATA.forEach(r => { mc[r.month_key] = (mc[r.month_key] || 0) + 1; });
+  const months = Object.keys(mc).map(Number).sort((a, b) => b - a);
+  fillSelect($("fMonth"), [["", "همه ماه‌ها"]].concat(months.map(m => [m, monthLabel(m) + " (" + faNum(mc[m]) + ")"])), $("fMonth").value);
+  const types = [...new Set(DATA.map(r => r.prop_type).filter(Boolean))].sort();
+  fillSelect($("fType"), [["", "همه انواع"]].concat(types.map(t => [t, t])), $("fType").value);
+  if(!$("fSort").options.length) fillSelect($("fSort"), Object.entries(SORTS).map(([k, v]) => [k, v[0]]), "newest");
+}
+function applyFilters(){
+  const q = $("fSearch").value.trim().toLowerCase();
+  const month = $("fMonth").value, type = $("fType").value, status = $("fStatus").value;
+  const pmin = num($("fPmin").value), pmax = num($("fPmax").value);
+  const amin = num($("fAmin").value), amax = num($("fAmax").value);
+  FILTERED = DATA.filter(r => {
+    if(status === "active" && r.status !== "active") return false;
+    if(month && String(r.month_key) !== month) return false;
+    if(type && r.prop_type !== type) return false;
+    if(q && !r.hay.includes(q)) return false;
+    if(pmin != null && (r.price == null || r.price < pmin * 1e9)) return false;
+    if(pmax != null && (r.price == null || r.price > pmax * 1e9)) return false;
+    if(amin != null && (r.area_m2 == null || r.area_m2 < amin)) return false;
+    if(amax != null && (r.area_m2 == null || r.area_m2 > amax)) return false;
+    return true;
+  });
+  const key = SORTS[$("fSort").value][1];
+  FILTERED.sort((a, b) => key(a) - key(b) || b.sort_key - a.sort_key);
+  SHOWN = 0; $("list").textContent = "";
+  $("summary").textContent = faNum(FILTERED.length) + " آگهی | میانه قیمت: " + fmtPrice(median(FILTERED.filter(r => r.price >= 1e8).map(r => r.price))) +
+    " | میانه هر متر: " + fmtPrice(median(FILTERED.map(r => r.ppm)));
+  showMore();
+}
+function showMore(){
+  const slice = FILTERED.slice(SHOWN, SHOWN + PAGE);
+  const list = $("list");
+  slice.forEach(r => list.appendChild(makeCard(r)));
+  SHOWN += slice.length;
+  $("btnMore").hidden = SHOWN >= FILTERED.length;
+  if(!FILTERED.length) list.appendChild(el("div", "meta", "آگهی‌ای با این فیلترها پیدا نشد."));
+}
+function makeCard(r){
+  const c = el("div", "card");
+  c.appendChild(el("h3", null, r.title || "(بدون عنوان)"));
+  const meta = el("div", "meta");
+  [r.prop_type, r.district, monthLabel(r.month_key)].filter(Boolean).forEach(t => meta.appendChild(el("span", "tag", t)));
+  if(r.status !== "active") meta.appendChild(el("span", "tag", r.status === "gone" ? "برداشته‌شده" : r.status));
+  c.appendChild(meta);
+  const row = el("div", "row");
+  row.appendChild(el("span", "price", fmtPrice(r.total_price != null ? r.total_price : r.price)));
+  if(r.area_m2) row.appendChild(el("span", null, faNum(r.area_m2) + " متر"));
+  if(r.ppm) row.appendChild(el("span", "meta", "هر متر: " + fmtPrice(r.ppm)));
+  if(r.rooms != null) row.appendChild(el("span", "meta", faNum(r.rooms) + " اتاق"));
+  if(r.year_built) row.appendChild(el("span", "meta", "ساخت " + faNum(r.year_built).replace(/٬/g, "")));
+  c.appendChild(row);
+  c.addEventListener("click", () => openDetail(r));
+  return c;
+}
+
+/* ---------- جزئیات ---------- */
+function safeHref(u, prefixes){ return (typeof u === "string" && prefixes.some(p => u.startsWith(p))) ? u : null; }
+async function openDetail(r){
+  const box = $("detailInner"); box.textContent = "";
+  const back = el("button", "ghost small", "← بازگشت"); back.addEventListener("click", closeDetail);
+  box.appendChild(back);
+  box.appendChild(el("h2", null, r.title || ""));
+  const tags = el("div", "meta");
+  [r.prop_type, r.district, r.posted_text && ("انتشار: " + r.posted_text), r.updated_text && ("به‌روزرسانی: " + r.updated_text)].filter(Boolean)
+    .forEach(t => tags.appendChild(el("span", "tag", t)));
+  box.appendChild(tags);
+
+  const p = el("div", "panel"); const t = el("table");
+  const addRow = (k, v) => { if(v == null || v === "") return; const tr = el("tr"); tr.appendChild(el("th", null, k)); tr.appendChild(el("td", null, v)); t.appendChild(tr); };
+  addRow("قیمت کل", fmtPrice(r.total_price != null ? r.total_price : r.price));
+  addRow("قیمت هر متر", r.ppm ? fmtPrice(r.ppm) : null);
+  addRow("متراژ", r.area_m2 ? faNum(r.area_m2) + " متر" : null);
+  addRow("متراژ زمین", r.land_area_m2 ? faNum(r.land_area_m2) + " متر" : null);
+  addRow("تعداد اتاق", r.rooms != null ? faNum(r.rooms) : null);
+  addRow("سال ساخت", r.year_built ? faNum(r.year_built).replace(/٬/g, "") : null);
+  addRow("طبقه", r.floor_text);
+  addRow("تعداد کل طبقات", r.total_floors != null ? faNum(r.total_floors) : null);
+  p.appendChild(t); box.appendChild(p);
+
+  const links = el("div");
+  const dv = safeHref(r.url, ["https://divar.ir/"]);
+  if(dv){ const a = el("a", "btn", "باز کردن در دیوار"); a.href = dv; a.target = "_blank"; a.rel = "noopener noreferrer"; links.appendChild(a); }
+  if(r.lat != null && r.lon != null){
+    const g = el("a", "btn ghost", "نمایش روی نقشه");
+    g.href = "https://www.google.com/maps?q=" + encodeURIComponent(r.lat + "," + r.lon); g.target = "_blank"; g.rel = "noopener noreferrer";
+    links.appendChild(g);
+    const o = el("a", "btn ghost", "OpenStreetMap");
+    o.href = "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(r.lat) + "&mlon=" + encodeURIComponent(r.lon) + "#map=17/" + encodeURIComponent(r.lat) + "/" + encodeURIComponent(r.lon);
+    o.target = "_blank"; o.rel = "noopener noreferrer"; links.appendChild(o);
+  }
+  box.appendChild(links);
+
+  if(r.description){ const d = el("div", "panel"); d.appendChild(el("b", null, "توضیحات آگهی")); d.appendChild(el("div", "desc", r.description)); box.appendChild(d); }
+  const hp = el("div", "panel"); hp.appendChild(el("b", null, "تاریخچه قیمت")); const hb = el("div", "meta", "در حال بارگذاری..."); hp.appendChild(hb); box.appendChild(hp);
+
+  $("detail").hidden = false; $("detail").scrollTop = 0;
+  try{ history.pushState({d: r.token}, ""); }catch(e){}
+  try{
+    const h = await turso(loadCfg(), "SELECT price, rent, seen_at FROM price_history WHERE token = ? ORDER BY seen_at", [r.token]);
+    hb.textContent = "";
+    if(h.length <= 1 && !(h.length === 1 && h[0].price == null)){ hb.textContent = h.length ? "تغییر قیمتی ثبت نشده است (قیمت اولیه: " + fmtPrice(h[0].price) + ")." : "تاریخچه‌ای ثبت نشده است."; }
+    else {
+      const ht = el("table"); h.forEach(x => { const tr = el("tr"); tr.appendChild(el("td", null, (x.seen_at || "").replace("T", " ").slice(0, 16))); tr.appendChild(el("td", null, fmtPrice(x.price))); ht.appendChild(tr); });
+      hb.appendChild(ht);
+    }
+  }catch(e){ hb.textContent = "تاریخچه بارگذاری نشد: " + e.message; }
+}
+function closeDetail(){ $("detail").hidden = true; }
+window.addEventListener("popstate", () => { if(!$("detail").hidden) closeDetail(); });
+
+/* ---------- راه‌اندازی ---------- */
+function showErr(id, e){ $(id).textContent = e ? (e.message || String(e)) : ""; }
+async function start(){
+  const cfg = loadCfg();
+  if(!cfg){ $("setup").hidden = false; $("app").hidden = true; return; }
+  $("setup").hidden = true; $("app").hidden = false; showErr("appErr", null);
+  $("summary").textContent = "در حال بارگذاری آگهی‌ها...";
+  try{
+    DATA = await loadData(cfg);
+    buildFilterOptions(); applyFilters();
+  }catch(e){ $("summary").textContent = ""; showErr("appErr", e); }
+}
+$("btnConnect").addEventListener("click", async () => {
+  const cfg = {url: $("cfgUrl").value.trim(), token: $("cfgToken").value.trim()};
+  if(!cfg.url || !cfg.token){ showErr("setupErr", new Error("هر دو را وارد کنید.")); return; }
+  showErr("setupErr", null);
+  try{ await turso(cfg, "SELECT COUNT(*) AS n FROM listings"); saveCfg(cfg); $("cfgToken").value = ""; start(); }
+  catch(e){ showErr("setupErr", e); }
+});
+$("btnFilters").addEventListener("click", () => { $("filters").hidden = !$("filters").hidden; });
+$("btnReload").addEventListener("click", start);
+$("btnMore").addEventListener("click", showMore);
+$("btnReset").addEventListener("click", () => {
+  ["fSearch","fPmin","fPmax","fAmin","fAmax"].forEach(i => { $(i).value = ""; });
+  $("fMonth").value = ""; $("fType").value = ""; $("fStatus").value = "active"; $("fSort").value = "newest"; applyFilters();
+});
+["fSearch","fPmin","fPmax","fAmin","fAmax"].forEach(i => $(i).addEventListener("input", applyFilters));
+["fMonth","fType","fStatus","fSort"].forEach(i => $(i).addEventListener("change", applyFilters));
+$("btnLogout").addEventListener("click", () => { try{ localStorage.removeItem(CFG_KEY); }catch(e){} DATA = []; start(); });
+start();
+if("serviceWorker" in navigator){ window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); }); }
+</script>
+</body>
+</html>
